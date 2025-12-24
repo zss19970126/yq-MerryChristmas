@@ -102,13 +102,15 @@
         <div id="top-right-controls">
             <div class="control-col" id="col-media">
                 <button id="btn-bg-music" class="control-btn">上传音乐</button>
+                <button id="btn-select-online-music" class="control-btn">在线音乐</button>
+
                 <button id="btn-add-photo" class="control-btn">上传照片</button>
-                <button id="btn-write-letter" class="control-btn">上传书信</button>
+                <button id="btn-write-letter" class="control-btn" style="display: none;">上传书信</button>
                 <button id="btn-set-title" class="control-btn">设置标题</button>
             </div>
             <div class="control-col" id="col-system">
-                <button id="btn-import" class="control-btn">导入网页</button>
-                <button id="btn-export" class="control-btn">导出网页</button>
+                <button id="btn-import" class="control-btn" style="display: none;">导入网页</button>
+                <button id="btn-export" class="control-btn" style="display: none;">导出网页</button>
                 <button id="btn-fullscreen" class="control-btn">全屏显示</button>
                 <button id="btn-switch-theme" class="control-btn">颜色切换</button>
             </div>
@@ -117,7 +119,16 @@
         <input type="file" id="music-input" accept="audio/mp3,audio/*">
         <input type="file" id="import-input" accept=".json">
     </div>
-
+<!-- 添加音乐选择模态框 -->
+<div id="music-selector-modal" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; max-width: 500px; background: rgba(10, 10, 10, 0.95); border: 1px solid #d4af37; border-radius: 10px; padding: 20px; z-index: 300; display: none; flex-direction: column; gap: 15px; pointer-events: auto;">
+    <h3 style="color: #d4af37; margin: 0; text-align: center;">选择在线音乐</h3>
+    <div id="music-list" style="max-height: 300px; overflow-y: auto; padding: 10px;">
+        <!-- 音乐列表将动态生成 -->
+    </div>
+    <div class="modal-btn-group">
+        <button id="btn-cancel-music" class="control-btn" style="width: 80px;">取消</button>
+    </div>
+</div>
     <div id="letter-editor-modal">
         <h3>撰写你的心意</h3>
         <textarea id="letter-text-input" placeholder="在这里写下你想说的话..."></textarea>
@@ -180,8 +191,8 @@
             wasPointing: false, palmCenter: { x: 0.5, y: 0.5 }, hasPalmCenter: false,
             starMesh: null, starHaloMesh: null,
             // 修改1：清空书信默认内容
-            letterContent:`亲爱的娅琪：
-
+            letterContent:`亲爱的娅琪：见字如见面
+相处两年 有争吵有打闹有嬉笑，分分合合，合合分分，总是在对方雷点蹦跶，但总归还是感性大于了理智，相信我们会有更美好的一天。也希望我们相处也能够越来越融洽，我会少点计较，少点脾气多点耐心多点担当，寻找并撑起一个属于我们的美好未来❤️。
 在这个温馨的圣诞夜，愿这棵美丽的圣诞树为你带来温暖和快乐。
 
 愿你在接下来每一天都欢声笑语，快乐常随，身体健康，也希望我们的感情越来越好.
@@ -190,7 +201,40 @@
 圣诞快乐！ -zss`, 
             letterTyper: null, letterStartTimer: null, letterLastTriggerTime: 0,
             musicData: null,
-        };
+           onlineMusicList: [
+        {
+            name: "Jingle Bells",
+            url: "https://cdn.glitch.global/2837ce30-2a07-467c-bd9c-8e5ad1379b7e/jingle-bells.mp3?v=1703123456890"
+        },
+        {
+            name: "Deck the Halls",
+            url: "https://cdn.glitch.global/2837ce30-2a07-467c-bd9c-8e5ad1379b7e/deck-the-halls.mp3?v=1703123456890"
+        },
+        {
+            name: "Silent Night",
+            url: "https://cdn.glitch.global/2837ce30-2a07-467c-bd9c-8e5ad1379b7e/silent-night.mp3?v=1703123456890"
+        },
+        {
+            name: "We Wish You a Merry Christmas",
+            url: "https://cdn.glitch.global/2837ce30-2a07-467c-bd9c-8e5ad1379b7e/we-wish-you-a-merry-christmas.mp3?v=1703123456890"
+        },
+        {
+            name: "Santa Claus Is Coming to Town",
+            url: "https://cdn.glitch.global/2837ce30-2a07-467c-bd9c-8e5ad1379b7e/santa-claus-is-coming-to-town.mp3?v=1703123456890"
+        },
+        {
+            name: "Frosty the Snowman",
+            url: "https://cdn.glitch.global/2837ce30-2a07-467c-bd9c-8e5ad1379b7e/frosty-the-snowman.mp3?v=1703123456890"
+        },
+        {
+            name: "Let It Snow",
+            url: "https://cdn.glitch.global/2837ce30-2a07-467c-bd9c-8e5ad1379b7e/let-it-snow.mp3?v=1703123456890"
+        },
+        {
+            name: "White Christmas",
+            url: "https://cdn.glitch.global/2837ce30-2a07-467c-bd9c-8e5ad1379b7e/white-christmas.mp3?v=1703123456890"
+        }
+    ] };
 
         let scene, camera, renderer, composer, clock = new THREE.Clock();
         let mainGroup, starGroup, bgGroup, photoMeshGroup, particleSystem = []; 
@@ -232,8 +276,17 @@
             setTimeout(() => loader.remove(), 1200);
 
             animate(); 
+            // 预加载第一首在线音乐
+            if (STATE.onlineMusicList.length > 0) {
+                preloadMusic(STATE.onlineMusicList[0].url);
+            }
         }
-
+        // 预加载音乐
+        function preloadMusic(musicUrl) {
+            const audio = new Audio();
+            audio.preload = 'auto';
+            audio.src = musicUrl;
+        }
         // 在init函数中的setupLetterSystem()之后添加默认图片
         async function loadDefaultImages() {
             // 定义默认图片路径数组
@@ -1107,9 +1160,120 @@
                     btnSwitch.classList.add('disabled');
                 }
             };
+            // 添加在线音乐选择事件
+    document.getElementById('btn-select-online-music').onclick = (e) => {
+        e.stopPropagation();
+        showMusicSelector();
+    };
+    
+    // 添加取消音乐选择事件
+    document.getElementById('btn-cancel-music').onclick = (e) => {
+        e.stopPropagation();
+        document.getElementById('music-selector-modal').style.display = 'none';
+    };
         }
+        // 显示音乐选择器
+function showMusicSelector() {
+    const modal = document.getElementById('music-selector-modal');
+    const musicList = document.getElementById('music-list');
+    
+    // 清空现有列表
+    musicList.innerHTML = '';
+    
+    // 生成音乐列表
+    STATE.onlineMusicList.forEach((music, index) => {
+        const musicItem = document.createElement('div');
+        musicItem.style.cssText = `
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(212, 175, 55, 0.1);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        `;
+        musicItem.innerHTML = `
+            <div style="color: #d4af37; font-weight: bold;">${music.name}</div>
+            <div style="color: #aaa; font-size: 12px; margin-top: 5px;">点击播放</div>
+        `;
+        
+        musicItem.onclick = () => {
+            playOnlineMusic(music.url, music.name);
+            modal.style.display = 'none';
+        };
+        
+        musicItem.onmouseenter = () => {
+            musicItem.style.background = 'rgba(212, 175, 55, 0.2)';
+            musicItem.style.borderColor = '#d4af37';
+        };
+        
+        musicItem.onmouseleave = () => {
+            musicItem.style.background = 'rgba(212, 175, 55, 0.1)';
+            musicItem.style.borderColor = 'rgba(212, 175, 55, 0.3)';
+        };
+        
+        musicList.appendChild(musicItem);
+    });
+    
+    modal.style.display = 'flex';
+}
+// 播放在线音乐 - 完整改进版本
+function playOnlineMusic(musicUrl, musicName) {
+    const audioEl = document.getElementById('bg-music');
+    
+    // 检查音频格式是否支持
+    if (!isValidAudioUrl(musicUrl)) {
+        console.error(`不支持的音频格式: ${musicUrl}`);
+        alert(`音乐 "${musicName}" 格式不受支持，请选择其他音乐。`);
+        return;
+    }
+    
+    try {
+        // 清除之前的音频源
+        audioEl.src = '';
+        audioEl.load();
+        
+        // 更新音乐数据
+        STATE.musicData = musicUrl;
+        
+        // 设置音频源
+        audioEl.src = musicUrl;
+        audioEl.load();
+        audioEl.currentTime = 0;
+        
+        // 播放音乐
+        audioEl.play().then(() => {
+            console.log(`正在播放: ${musicName}`);
+        }).catch(error => {
+            console.error('音频播放失败:', error);
+            alert(`音乐 "${musicName}" 播放失败，请尝试其他音乐或检查网络连接。\n错误: ${error.message}`);
+        });
+    } catch (error) {
+        console.error('音频加载失败:', error);
+        alert(`音乐 "${musicName}" 加载失败，请尝试其他音乐。`);
+    }
+}
 
-        init();
+// 检查 URL 是否为支持的格式
+function isValidAudioUrl(url) {
+    const supportedFormats = ['.mp3', '.ogg', '.wav', '.m4a', '.aac'];
+    const lowerUrl = url.toLowerCase();
+    return supportedFormats.some(format => lowerUrl.includes(format));
+}
+
+// 检查浏览器支持的音频格式
+function getSupportedAudioFormat() {
+    const audio = document.createElement('audio');
+    if (audio.canPlayType('audio/mpeg')) {
+        return 'mp3';
+    } else if (audio.canPlayType('audio/ogg')) {
+        return 'ogg';
+    } else if (audio.canPlayType('audio/wav')) {
+        return 'wav';
+    }
+    return null;
+}
+init();
     </script>
 </body>
 </html>
